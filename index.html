@@ -13,33 +13,46 @@
             <div class="brand-container">
                 <img src="assets/logo.png" alt="LEXIS Plus" class="logo-main">
                 <div class="sub-logos">
-                    <!--img src="assets/sub1.png" alt="Junior" class="logo-sub"-->
-                    <!--img src="assets/sub2.png" alt="Advanced" class="logo-sub"-->
+                    <!--img src="sub1.png" alt="Junior" class="logo-sub">
+                    <img src="sub2.png" alt="Advanced" class="logo-sub"-->
                 </div>
             </div>
         </header>
 
-        <main id="game-card">
-            <div id="quiz-screen">
-                <div class="game-meta">
-                    <span id="level-label">LEVEL 1/5</span>
-                    <div class="xp-badge">XP: <span id="live-score">0000</span></div>
-                </div>
-                <div class="progress-container"><div id="progress-fill"></div></div>
-                <h2 id="question-text">System Initialization...</h2>
-                <div id="options-grid">
-                    <button class="start-btn" onclick="startGame()">MISSION START</button>
+        <section class="zone mission-zone">
+            <div class="zone-tag">CORE MISSION</div>
+            <div id="game-card">
+                <div id="quiz-screen">
+                    <div class="game-meta">
+                        <span id="level-label">READY?</span>
+                        <div class="xp-badge">XP: <span id="live-score">0000</span></div>
+                    </div>
+                    <div class="progress-container"><div id="progress-fill"></div></div>
+                    <h2 id="question-text">Ξεκίνα την αποστολή για να δοκιμάσεις τις γνώσεις σου!</h2>
+                    <div id="options-grid">
+                        <button class="action-btn start-quiz" onclick="startGame()">START QUIZ</button>
+                    </div>
                 </div>
             </div>
-        </main>
+        </section>
 
-        <section id="ai-module">
-            <div class="mic-status">
-                <div class="pulse-ring"></div>
-                <span id="status-label">AI STANDBY</span>
+        <div class="neon-divider"></div>
+
+        <section class="zone ai-lab-zone">
+            <div class="zone-tag">AI LANGUAGE LAB</div>
+            <div id="ai-card">
+                <div class="mic-status">
+                    <div class="pulse-ring"></div>
+                    <span id="status-label">SENSOR OFF</span>
+                </div>
+                <div class="visualizer">
+                    <div id="flag-display">🤖</div>
+                </div>
+                <div id="ai-controls">
+                    <button id="activate-ai-btn" class="action-btn ai-btn" onclick="initAI()">ACTIVATE AI SENSOR</button>
+                </div>
+                <p class="hint">Ενεργοποίησε το AI και πες "HELLO"</p>
             </div>
-            <div class="visualizer"><div id="flag-display">🤖</div></div>
-            <p class="hint">Πες "HELLO" για αναγνώριση φωνής</p>
         </section>
 
         <footer>
