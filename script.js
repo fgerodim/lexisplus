@@ -47,23 +47,29 @@ function finishGame() {
     `;
 }
 
-// --- AI LOGIC ---
 async function initAI() {
     const btn = document.getElementById('activate-ai-btn');
     btn.innerText = "LOADING AI...";
     btn.disabled = true;
 
     try {
-        // ΔΙΟΡΘΩΣΗ ΓΙΑ ΚΙΝΗΤΑ: Εξαναγκασμός ενεργοποίησης ήχου
+        // 1. Δημιουργούμε το AudioContext ΑΜΕΣΩΣ μετά το κλικ
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         const audioCtx = new AudioContext();
+        
+        // 2. Ζητάμε ρητά την άδεια από τον χρήστη ΠΡΙΝ φορτώσουμε το μοντέλο
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        
+        // Αν φτάσαμε εδώ, ο χρήστης πάτησε "Allow" στο notification
         if (audioCtx.state === 'suspended') {
             await audioCtx.resume();
         }
 
+        // 3. Τώρα φορτώνουμε το μοντέλο αφού έχουμε ήδη το stream
         const recognizer = speechCommands.create("BROWSER_FFT", undefined, TM_URL + "model.json", TM_URL + "metadata.json");
         await recognizer.ensureModelLoaded();
         
+        // 4. Ενεργοποιούμε το UI
         document.querySelector('.ai-lab-zone').classList.add('active-mic');
         document.getElementById('status-label').innerText = "AI LISTENING";
         btn.innerText = "SENSOR ACTIVE";
@@ -81,11 +87,14 @@ async function initAI() {
             invokeCallbackOnNoise: true,
             overlapFactor: 0.5 
         });
+
     } catch(e) { 
+        // Αν ο χρήστης πατήσει "Deny" ή υπάρξει σφάλμα
         btn.innerText = "ERROR: MIC DENIED";
         btn.disabled = false;
-        console.error("Mic Error:", e); 
-        alert("Παρακαλώ επιτρέψτε την πρόσβαση στο μικρόφωνο από τις ρυθμίσεις του browser σας.");
+        console.error("Detailed Mic Error:", e);
+        alert("Πρέπει να επιτρέψετε το μικρόφωνο για να λειτουργήσει το AI Lab.");
     }
+
 
 }
