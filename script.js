@@ -8,7 +8,7 @@ const questions = [
 
 let currentQ = 0; let score = 0;
 // ΑΝΤΙΚΑΤΑΣΤΗΣΕ ΤΟ URL ΜΕ ΤΟ ΔΙΚΟ ΣΟΥ ΑΠΟ ΤΟ TEACHABLE MACHINE
-const TM_URL = "https://teachablemachine.withgoogle.com/models/6X_8XkR7p/";
+const TM_URL = "https://teachablemachine.withgoogle.com/models/YOUR_ID/"; 
 const flagMap = { "Greek": "🇬🇷", "English": "🇬🇧", "Spanish": "🇪🇸", "French": "🇫🇷" };
 
 // --- QUIZ LOGIC ---
