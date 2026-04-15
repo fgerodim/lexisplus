@@ -54,6 +54,13 @@ async function initAI() {
     btn.disabled = true;
 
     try {
+        // ΔΙΟΡΘΩΣΗ ΓΙΑ ΚΙΝΗΤΑ: Εξαναγκασμός ενεργοποίησης ήχου
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const audioCtx = new AudioContext();
+        if (audioCtx.state === 'suspended') {
+            await audioCtx.resume();
+        }
+
         const recognizer = speechCommands.create("BROWSER_FFT", undefined, TM_URL + "model.json", TM_URL + "metadata.json");
         await recognizer.ensureModelLoaded();
         
@@ -69,9 +76,16 @@ async function initAI() {
                 let f = document.getElementById('flag-display');
                 f.innerText = flagMap[labels[idx]];
             }
-        }, { probabilityThreshold: 0.85 });
+        }, { 
+            probabilityThreshold: 0.85,
+            invokeCallbackOnNoise: true,
+            overlapFactor: 0.5 
+        });
     } catch(e) { 
         btn.innerText = "ERROR: MIC DENIED";
-        console.error(e); 
+        btn.disabled = false;
+        console.error("Mic Error:", e); 
+        alert("Παρακαλώ επιτρέψτε την πρόσβαση στο μικρόφωνο από τις ρυθμίσεις του browser σας.");
     }
+
 }
