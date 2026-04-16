@@ -132,7 +132,7 @@ async function initAI() {
                 }
             }
         }, {
-            probabilityThreshold: 0.75,
+            probabilityThreshold: 0.85,
             overlapFactor: 0.70
         });
 
