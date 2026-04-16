@@ -6,11 +6,13 @@ const questions = [
     { q: "Πού γράφουμε κώδικα Python στο Cloud (Advanced);", a: ["Google Colab", "Facebook", "Instagram"], c: 0 }
 ];
 
-let currentQ = 0; let score = 0;
+let currentQ = 0; let score = 0; let lastDetectionTime = 0;
 // ΑΝΤΙΚΑΤΑΣΤΗΣΕ ΤΟ URL ΜΕ ΤΟ ΔΙΚΟ ΣΟΥ ΑΠΟ ΤΟ TEACHABLE MACHINE
-const TM_URL = "https://teachablemachine.withgoogle.com/models/YOUR_ID/"; 
-const flagMap = { "Greek": "🇬🇷", "English": "🇬🇧", "Spanish": "🇪🇸", "French": "🇫🇷" };
-
+const TM_URL = "https://teachablemachine.withgoogle.com/models/rWcz2aeaS/"; 
+const flagMap = {
+    "hello_en": "🇬🇧",
+    "geia_gr": "🇬🇷"
+};
 // --- QUIZ LOGIC ---
 function startGame() {
     score = 0; currentQ = 0;
@@ -94,13 +96,36 @@ async function initAI() {
 
         recognizer.listen(result => {
             const labels = recognizer.wordLabels();
-            let max = Math.max(...result.scores);
-            let idx = result.scores.indexOf(max);
-            if (max > 0.85 && flagMap[labels[idx]]) {
-                let f = document.getElementById('flag-display');
-                f.innerText = flagMap[labels[idx]];
+            const scores = result.scores;
+
+            let maxScore = 0;
+            let detectedLabel = null;
+
+            labels.forEach((label, i) => {
+                if (label === "background_noise") return;
+
+                if (scores[i] > maxScore) {
+                    maxScore = scores[i];
+                    detectedLabel = label;
+                }
+            });
+
+            const now = Date.now();
+
+            // debounce (δεν αλλάζει συνεχώς)
+            if (now - lastDetectionTime < 1000) return;
+
+            console.log("Detected:", detectedLabel, maxScore);
+
+            if (maxScore > 0.75 && flagMap[detectedLabel]) {
+                document.getElementById('flag-display').innerText = flagMap[detectedLabel];
+                lastDetectionTime = now;
             }
-        }, { probabilityThreshold: 0.85 });
+
+        }, {
+            probabilityThreshold: 0.7,
+            overlapFactor: 0.5
+        });
 
     } catch(e) { 
         console.error("Mic/AI Error:", e);
