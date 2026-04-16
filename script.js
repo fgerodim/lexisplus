@@ -121,8 +121,8 @@ async function initAI() {
         }
 
         await recognizer.listen(handleAIResult, {
-            probabilityThreshold: 0.85,
-            overlapFactor: 0.2
+            probabilityThreshold: 0.75,
+            overlapFactor: 0.25
         });
 
         isAIActive = true;
