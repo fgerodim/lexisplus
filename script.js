@@ -1,4 +1,3 @@
-
 // ===================== QUIZ =====================
 
 const questions = [
@@ -19,11 +18,9 @@ const TM_URL = "https://teachablemachine.withgoogle.com/models/rWcz2aeaS/";
 let recognizer = null;
 let isAIActive = false;
 let isLoading = false;
-
 let lastDetectionTime = 0;
 
-// ===================== LABEL MAP =====================
-
+// label map
 const flagMap = {
     "hello_en": "🇬🇧",
     "geia_gr": "🇬🇷"
@@ -90,10 +87,10 @@ function finishGame() {
     `;
 }
 
-// ===================== AI TOGGLE =====================
+// ===================== AI (ONE SHOT MODE) =====================
 
 async function initAI() {
-    if (isLoading) return;
+    if (isLoading || isAIActive) return;
     isLoading = true;
 
     const btn = document.getElementById("activate-ai-btn");
@@ -101,19 +98,9 @@ async function initAI() {
     const zone = document.querySelector(".ai-lab-zone");
 
     try {
-
-        // ================= STOP =================
-        if (isAIActive) {
-            await stopAI();
-            isLoading = false;
-            return;
-        }
-
-        // UI loading
         btn.innerText = "CONNECTING...";
         btn.disabled = true;
 
-        // ================= LOAD MODEL =================
         if (!recognizer) {
             recognizer = speechCommands.create(
                 "BROWSER_FFT",
@@ -124,7 +111,6 @@ async function initAI() {
             await recognizer.ensureModelLoaded();
         }
 
-        // ================= START LISTENING =================
         await recognizer.listen(handleResult, {
             probabilityThreshold: 0.80,
             overlapFactor: 0.3
@@ -182,6 +168,9 @@ function handleResult(result) {
             flagMap[bestLabel];
 
         lastDetectionTime = now;
+
+        // 🔥 ONE-SHOT AUTO STOP
+        stopAI();
     }
 }
 
@@ -197,7 +186,7 @@ async function stopAI() {
         isAIActive = false;
 
         if (recognizer) {
-            recognizer.stopListening(); // IMPORTANT: sync stop (more stable)
+            recognizer.stopListening();
         }
 
         zone.classList.remove("active-mic");
@@ -209,9 +198,9 @@ async function stopAI() {
 
         flagDisplay.innerText = "🤖";
 
-        console.log("AI stopped");
+        console.log("AI stopped (one-shot mode)");
 
     } catch (err) {
-        console.error("stopAI error:", err);
+        console.error(err);
     }
 }
