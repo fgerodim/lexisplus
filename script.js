@@ -1,4 +1,5 @@
-// --- CONFIGURATION ---
+// ===================== QUIZ =====================
+
 const questions = [
     { q: "Στο Advanced τμήμα, ποιο εργαλείο μετατρέπει την Python σε Web App;", a: ["Excel", "Streamlit", "PowerPoint"], c: 1 },
     { q: "Τι χρησιμοποιούμε για να σχεδιάσουμε τη λογική ενός αλγορίθμου;", a: ["Flowcharts", "Word", "Paint"], c: 0 },
@@ -7,15 +8,15 @@ const questions = [
     { q: "Πού γράφουμε κώδικα Python στο Cloud;", a: ["Google Colab", "Facebook", "Instagram"], c: 0 }
 ];
 
-const TM_URL = "https://teachablemachine.withgoogle.com/models/rWcz2aeaS/";
-
-// --- STATE ---
 let currentQ = 0;
 let score = 0;
 
+// ===================== AI STATE =====================
+
+const TM_URL = "https://teachablemachine.withgoogle.com/models/rWcz2aeaS/";
+
 let recognizer = null;
 let micStream = null;
-
 let isAIActive = false;
 let lastDetectionTime = 0;
 
@@ -25,40 +26,43 @@ const flagMap = {
     "geia_gr": "🇬🇷"
 };
 
-// ---------------- QUIZ ----------------
+// ===================== QUIZ LOGIC =====================
 
 function startGame() {
     score = 0;
     currentQ = 0;
 
-    document.getElementById('live-score').innerText = "0000";
+    document.getElementById("live-score").innerText = "0000";
     showQuestion();
 }
 
 function showQuestion() {
     const q = questions[currentQ];
 
-    document.getElementById('level-label').innerText = `LEVEL ${currentQ + 1}/${questions.length}`;
-    document.getElementById('progress-fill').style.width =
+    document.getElementById("level-label").innerText =
+        `LEVEL ${currentQ + 1}/${questions.length}`;
+
+    document.getElementById("progress-fill").style.width =
         `${(currentQ / questions.length) * 100}%`;
 
-    document.getElementById('question-text').innerText = q.q;
+    document.getElementById("question-text").innerText = q.q;
 
-    document.getElementById('options-grid').innerHTML =
+    document.getElementById("options-grid").innerHTML =
         q.a.map((opt, i) =>
             `<button class="option-btn" onclick="checkAns(${i})">${opt}</button>`
-        ).join('');
+        ).join("");
 }
 
 function checkAns(idx) {
     const isCorrect = idx === questions[currentQ].c;
 
-    const sfx = document.getElementById(isCorrect ? 'sfx-correct' : 'sfx-wrong');
+    const sfx = document.getElementById(isCorrect ? "sfx-correct" : "sfx-wrong");
     if (sfx) sfx.play();
 
     if (isCorrect) score += 200;
 
-    document.getElementById('live-score').innerText = String(score).padStart(4, '0');
+    document.getElementById("live-score").innerText =
+        String(score).padStart(4, "0");
 
     currentQ++;
 
@@ -70,9 +74,11 @@ function checkAns(idx) {
 }
 
 function finishGame() {
-    document.getElementById('quiz-screen').innerHTML = `
+    document.getElementById("quiz-screen").innerHTML = `
         <h2 style="color:var(--lexis-accent); text-align:center;">MISSION COMPLETE</h2>
-        <div style="font-size: 2.5rem; text-align:center; margin: 15px 0;">${score} XP</div>
+        <div style="font-size: 2.5rem; text-align:center; margin: 15px 0;">
+            ${score} XP
+        </div>
         <button class="action-btn start-quiz"
             onclick="window.location.href='tel:2651030098'"
             style="background:#34c759">
@@ -81,96 +87,137 @@ function finishGame() {
     `;
 }
 
-// ---------------- AI LOGIC ----------------
-
-let timer; // Μεταβλητή για το χρονόμετρο 5 δευτερολέπτων
+// ===================== AI LOGIC =====================
 
 async function initAI() {
-    const btn = document.getElementById('activate-ai-btn');
-    const statusLabel = document.getElementById('status-label');
+    const btn = document.getElementById("activate-ai-btn");
+    const statusLabel = document.getElementById("status-label");
+    const zone = document.querySelector(".ai-lab-zone");
+    const flagDisplay = document.getElementById("flag-display");
 
-    // 1. Αν πατηθεί ενώ είναι ανοιχτό, το κλείνουμε χειροκίνητα και καθαρίζουμε το χρονόμετρο
-    if (recognizer && recognizer.isListening()) {
-        clearTimeout(timer); // Ακύρωση του αυτόματου κλεισίματος
+    // TOGGLE OFF
+    if (isAIActive) {
         await stopAI();
         return;
     }
 
-    btn.innerText = "CONNECTING...";
-    btn.disabled = true;
-
     try {
+        btn.innerText = "CONNECTING...";
+        btn.disabled = true;
+
+        // mic permission
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         const audioCtx = new AudioContext();
-        await navigator.mediaDevices.getUserMedia({ audio: true });
-        if (audioCtx.state === 'suspended') await audioCtx.resume();
+        if (audioCtx.state === "suspended") await audioCtx.resume();
 
+        // load model once
         if (!recognizer) {
-            recognizer = speechCommands.create("BROWSER_FFT", undefined, TM_URL + "model.json", TM_URL + "metadata.json");
+            recognizer = speechCommands.create(
+                "BROWSER_FFT",
+                undefined,
+                TM_URL + "model.json",
+                TM_URL + "metadata.json"
+            );
             await recognizer.ensureModelLoaded();
         }
 
-        await recognizer.listen(result => {
-            const labels = recognizer.wordLabels();
-            const scores = result.scores;
-            let maxScore = 0;
-            let detectedLabel = null;
-
-            labels.forEach((label, i) => {
-                if (label === "background_noise") return;
-                if (scores[i] > maxScore) {
-                    maxScore = scores[i];
-                    detectedLabel = label;
-                }
-            });
-
-            const now = Date.now();
-            if (maxScore > 0.80 && flagMap[detectedLabel]) {
-                if (now - lastDetectionTime > 1000) {
-                    document.getElementById('flag-display').innerText = flagMap[detectedLabel];
-                    lastDetectionTime = now;
-                }
-            }
-        }, {
-            probabilityThreshold: 0.85,
-            overlapFactor: 0.70
+        // start listening
+        await recognizer.listen(handleResult, {
+            probabilityThreshold: 0.80,
+            overlapFactor: 0.5
         });
 
-        // 2. UI UPDATE - ΕΝΕΡΓΟ
-        document.querySelector('.ai-lab-zone').classList.add('active-mic');
-        statusLabel.innerText = "AI LISTENING (5s)";
-        btn.innerText = "STOP SENSOR NOW";
+        isAIActive = true;
+
+        zone.classList.add("active-mic");
+        statusLabel.innerText = "AI LISTENING";
+
+        btn.innerText = "TURN OFF SENSOR";
         btn.style.background = "#ff3b30";
         btn.disabled = false;
 
-        // 3. ΑΥΤΟΜΑΤΟ ΚΛΕΙΣΙΜΟ ΜΕΤΑ ΑΠΟ 5 ΔΕΥΤΕΡΟΛΕΠΤΑ
-        clearTimeout(timer); // Σιγουρευόμαστε ότι δεν τρέχει άλλο timer
-        timer = setTimeout(async () => {
-            if (recognizer && recognizer.isListening()) {
-                await stopAI();
-                statusLabel.innerText = "AUTO-OFF (TIME UP)";
-            }
-        }, 5000); // 5000ms = 5 δευτερόλεπτα
+    } catch (err) {
+        console.error(err);
 
-    } catch(e) { 
-        console.error("AI Error:", e);
         btn.innerText = "RETRY SENSOR";
         btn.disabled = false;
+
         statusLabel.innerText = "OFFLINE";
     }
 }
 
+// ===================== AI CALLBACK =====================
+
+function handleResult(result) {
+    if (!isAIActive) return;
+
+    const labels = recognizer.wordLabels();
+    const scores = result.scores;
+
+    let maxScore = 0;
+    let detected = null;
+
+    for (let i = 0; i < labels.length; i++) {
+        if (labels[i] === "background_noise") continue;
+
+        if (scores[i] > maxScore) {
+            maxScore = scores[i];
+            detected = labels[i];
+        }
+    }
+
+    const now = Date.now();
+
+    if (
+        maxScore > 0.8 &&
+        flagMap[detected] &&
+        now - lastDetectionTime > 1200
+    ) {
+        document.getElementById("flag-display").innerText =
+            flagMap[detected];
+
+        lastDetectionTime = now;
+    }
+}
+
+// ===================== STOP AI =====================
+
 async function stopAI() {
-    if (recognizer && recognizer.isListening()) {
-        await recognizer.stop();
-        
-        const btn = document.getElementById('activate-ai-btn');
-        const statusLabel = document.getElementById('status-label');
-        
-        document.querySelector('.ai-lab-zone').classList.remove('active-mic');
+    const btn = document.getElementById("activate-ai-btn");
+    const statusLabel = document.getElementById("status-label");
+    const zone = document.querySelector(".ai-lab-zone");
+    const flagDisplay = document.getElementById("flag-display");
+
+    try {
+        isAIActive = false;
+
+        // STOP LISTENING (CRITICAL FIX)
+        if (recognizer) {
+            await recognizer.stopListening();
+        }
+
+        // STOP MICROPHONE STREAM
+        if (micStream) {
+            micStream.getTracks().forEach(t => t.stop());
+            micStream = null;
+        }
+
+        // RESET UI
+        zone.classList.remove("active-mic");
         statusLabel.innerText = "SENSOR OFF";
+
         btn.innerText = "ACTIVATE AI SENSOR";
-        btn.style.background = ""; // Επιστροφή στο CSS default
+        btn.style.background = "";
         btn.disabled = false;
+
+        // RESET FLAG
+        flagDisplay.innerText = "🤖";
+
+        console.log("AI stopped cleanly");
+
+    } catch (err) {
+        console.error("stopAI error:", err);
     }
 }
