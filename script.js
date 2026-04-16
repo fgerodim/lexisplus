@@ -1,3 +1,4 @@
+// --- CONFIGURATION ---
 const questions = [
     { q: "Στο Advanced τμήμα, ποιο εργαλείο μετατρέπει την Python σε Web App;", a: ["Excel", "Streamlit", "PowerPoint"], c: 1 },
     { q: "Τι χρησιμοποιούμε για να σχεδιάσουμε τη λογική ενός αλγορίθμου;", a: ["Flowcharts", "Word", "Paint"], c: 0 },
@@ -6,16 +7,22 @@ const questions = [
     { q: "Πού γράφουμε κώδικα Python στο Cloud (Advanced);", a: ["Google Colab", "Facebook", "Instagram"], c: 0 }
 ];
 
-let currentQ = 0; let score = 0; let lastDetectionTime = 0;
-// ΑΝΤΙΚΑΤΑΣΤΗΣΕ ΤΟ URL ΜΕ ΤΟ ΔΙΚΟ ΣΟΥ ΑΠΟ ΤΟ TEACHABLE MACHINE
 const TM_URL = "https://teachablemachine.withgoogle.com/models/rWcz2aeaS/"; 
 const flagMap = {
     "hello_en": "🇬🇧",
     "geia_gr": "🇬🇷"
 };
+
+// --- GLOBAL VARIABLES ---
+let currentQ = 0; 
+let score = 0; 
+let lastDetectionTime = 0;
+let recognizer; // Παγκόσμια μεταβλητή για το AI
+
 // --- QUIZ LOGIC ---
 function startGame() {
-    score = 0; currentQ = 0;
+    score = 0; 
+    currentQ = 0;
     document.getElementById('live-score').innerText = "0000";
     showQuestion();
 }
@@ -23,7 +30,7 @@ function startGame() {
 function showQuestion() {
     let q = questions[currentQ];
     document.getElementById('level-label').innerText = `LEVEL ${currentQ + 1}/5`;
-    document.getElementById('progress-fill').style.width = `${(currentQ / questions.length) * 100}%`;
+    document.getElementById('progress-fill').style.width = `${((currentQ) / questions.length) * 100}%`;
     document.getElementById('question-text').innerText = q.q;
     document.getElementById('options-grid').innerHTML = q.a.map((opt, i) => 
         `<button class="option-btn" onclick="checkAns(${i})">${opt}</button>`
@@ -31,14 +38,22 @@ function showQuestion() {
 }
 
 function checkAns(idx) {
-    const sfx = idx === questions[currentQ].c ? 'sfx-correct' : 'sfx-wrong';
-    document.getElementById(sfx).play();
-    if(idx === questions[currentQ].c) score += 200;
+    const isCorrect = idx === questions[currentQ].c;
+    const sfxId = isCorrect ? 'sfx-correct' : 'sfx-wrong';
+    
+    const sfx = document.getElementById(sfxId);
+    if(sfx) sfx.play();
+
+    if(isCorrect) score += 200;
     
     document.getElementById('live-score').innerText = score.toString().padStart(4, '0');
     currentQ++;
-    if(currentQ < questions.length) showQuestion();
-    else finishGame();
+
+    if(currentQ < questions.length) {
+        showQuestion();
+    } else {
+        finishGame();
+    }
 }
 
 function finishGame() {
@@ -49,52 +64,43 @@ function finishGame() {
     `;
 }
 
+// --- AI LOGIC (TOGGLE ON/OFF) ---
 async function initAI() {
     const btn = document.getElementById('activate-ai-btn');
     const statusLabel = document.getElementById('status-label');
-    
+
+    // 1. ΛΕΙΤΟΥΡΓΙΑ TOGGLE: Αν ακούει ήδη, σταμάτα το
+    if (recognizer && recognizer.isListening()) {
+        await stopAI();
+        return;
+    }
+
     btn.innerText = "CONNECTING...";
     btn.disabled = true;
 
-    // ΕΛΕΓΧΟΣ ΑΝ ΕΧΕΙ ΜΠΕΙ ΜΟΝΤΕΛΟ
+    // ΕΛΕΓΧΟΣ URL
     if (TM_URL.includes("YOUR_ID")) {
-        console.warn("AI Model missing. Entering Preview Mode...");
-        
-        // Προσομοίωση ενεργοποίησης για να δεις τα γραφικά σου
-        setTimeout(() => {
-            document.querySelector('.ai-lab-zone').classList.add('active-mic');
-            statusLabel.innerText = "DEMO MODE (No Model)";
-            btn.innerText = "MODEL REQUIRED";
-            btn.style.background = "#ffcc00"; // Πορτοκαλί αντί για πράσινο
-            btn.disabled = false;
-            alert("Το AI Section είναι έτοιμο οπτικά! Για να λειτουργήσει η αναγνώριση φωνής, πρέπει να βάλετε το δικό σας URL από το Teachable Machine.");
-        }, 1000);
+        alert("Please set your Teachable Machine URL first!");
+        btn.innerText = "URL MISSING";
+        btn.disabled = false;
         return;
     }
 
     try {
+        // 2. Ξεκλείδωμα Audio για Mobile
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         const audioCtx = new AudioContext();
-        
-        // Ζητάμε το stream πριν ξεκινήσουμε το μοντέλο
         await navigator.mediaDevices.getUserMedia({ audio: true });
-        
         if (audioCtx.state === 'suspended') await audioCtx.resume();
 
-        const recognizer = speechCommands.create("BROWSER_FFT", undefined, TM_URL + "model.json", TM_URL + "metadata.json");
-        
-        // Timeout 5 δευτερολέπτων για τη φόρτωση
-        await Promise.race([
-            recognizer.ensureModelLoaded(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 5000))
-        ]);
+        // 3. Δημιουργία/Φόρτωση Μοντέλου (αν δεν έχει ήδη δημιουργηθεί)
+        if (!recognizer) {
+            recognizer = speechCommands.create("BROWSER_FFT", undefined, TM_URL + "model.json", TM_URL + "metadata.json");
+            await recognizer.ensureModelLoaded();
+        }
 
-        document.querySelector('.ai-lab-zone').classList.add('active-mic');
-        statusLabel.innerText = "AI LISTENING";
-        btn.innerText = "SENSOR ACTIVE";
-        btn.style.background = "#34c759";
-
-        recognizer.listen(result => {
+        // 4. Έναρξη Ακρόασης
+        await recognizer.listen(result => {
             const labels = recognizer.wordLabels();
             const scores = result.scores;
 
@@ -103,7 +109,6 @@ async function initAI() {
 
             labels.forEach((label, i) => {
                 if (label === "background_noise") return;
-
                 if (scores[i] > maxScore) {
                     maxScore = scores[i];
                     detectedLabel = label;
@@ -111,29 +116,49 @@ async function initAI() {
             });
 
             const now = Date.now();
-
-            // debounce (δεν αλλάζει συνεχώς)
-            if (now - lastDetectionTime < 1000) return;
-
-            console.log("Detected:", detectedLabel, maxScore);
-
+            // Debounce 1 δευτερόλεπτο και threshold 0.75
             if (maxScore > 0.75 && flagMap[detectedLabel]) {
-                document.getElementById('flag-display').innerText = flagMap[detectedLabel];
-                lastDetectionTime = now;
+                if (now - lastDetectionTime > 1000) {
+                    document.getElementById('flag-display').innerText = flagMap[detectedLabel];
+                    lastDetectionTime = now;
+                    console.log("AI Detected:", detectedLabel);
+                }
             }
-
         }, {
-            probabilityThreshold: 0.7,
+            probabilityThreshold: 0.70,
             overlapFactor: 0.5
         });
 
+        // 5. UI Update - "ON" State
+        document.querySelector('.ai-lab-zone').classList.add('active-mic');
+        statusLabel.innerText = "AI LISTENING";
+        btn.innerText = "TURN OFF SENSOR";
+        btn.style.background = "#ff3b30"; // Κόκκινο όταν είναι ενεργό
+        btn.disabled = false;
+
     } catch(e) { 
         console.error("Mic/AI Error:", e);
-        btn.innerText = "ERROR: CHECK URL";
+        btn.innerText = "RETRY SENSOR";
         btn.disabled = false;
         statusLabel.innerText = "OFFLINE";
+        alert("Σφάλμα πρόσβασης στο μικρόφωνο. Παρακαλώ επιτρέψτε την πρόσβαση.");
     }
+}
 
-
-
+async function stopAI() {
+    if (recognizer && recognizer.isListening()) {
+        await recognizer.stop();
+        
+        const btn = document.getElementById('activate-ai-btn');
+        const statusLabel = document.getElementById('status-label');
+        
+        // UI Update - "OFF" State
+        document.querySelector('.ai-lab-zone').classList.remove('active-mic');
+        statusLabel.innerText = "SENSOR OFF";
+        btn.innerText = "ACTIVATE AI SENSOR";
+        btn.style.background = "var(--lexis-accent)"; // Επιστροφή στο αρχικό χρώμα
+        btn.disabled = false;
+        
+        console.log("AI Sensor Stopped.");
+    }
 }
