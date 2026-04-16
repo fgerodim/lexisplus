@@ -1,3 +1,4 @@
+
 // ===================== QUIZ =====================
 
 const questions = [
@@ -16,17 +17,19 @@ let score = 0;
 const TM_URL = "https://teachablemachine.withgoogle.com/models/rWcz2aeaS/";
 
 let recognizer = null;
-let micStream = null;
 let isAIActive = false;
+let isLoading = false;
+
 let lastDetectionTime = 0;
 
-// label -> emoji
+// ===================== LABEL MAP =====================
+
 const flagMap = {
     "hello_en": "🇬🇧",
     "geia_gr": "🇬🇷"
 };
 
-// ===================== QUIZ LOGIC =====================
+// ===================== QUIZ =====================
 
 function startGame() {
     score = 0;
@@ -75,8 +78,8 @@ function checkAns(idx) {
 
 function finishGame() {
     document.getElementById("quiz-screen").innerHTML = `
-        <h2 style="color:var(--lexis-accent); text-align:center;">MISSION COMPLETE</h2>
-        <div style="font-size: 2.5rem; text-align:center; margin: 15px 0;">
+        <h2 style="text-align:center;color:#00ff88;">MISSION COMPLETE</h2>
+        <div style="font-size:2rem;text-align:center;margin:20px;">
             ${score} XP
         </div>
         <button class="action-btn start-quiz"
@@ -87,32 +90,30 @@ function finishGame() {
     `;
 }
 
-// ===================== AI LOGIC =====================
+// ===================== AI TOGGLE =====================
 
 async function initAI() {
+    if (isLoading) return;
+    isLoading = true;
+
     const btn = document.getElementById("activate-ai-btn");
     const statusLabel = document.getElementById("status-label");
     const zone = document.querySelector(".ai-lab-zone");
-    const flagDisplay = document.getElementById("flag-display");
-
-    // TOGGLE OFF
-    if (isAIActive) {
-        await stopAI();
-        return;
-    }
 
     try {
+
+        // ================= STOP =================
+        if (isAIActive) {
+            await stopAI();
+            isLoading = false;
+            return;
+        }
+
+        // UI loading
         btn.innerText = "CONNECTING...";
         btn.disabled = true;
 
-        // mic permission
-        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        const audioCtx = new AudioContext();
-        if (audioCtx.state === "suspended") await audioCtx.resume();
-
-        // load model once
+        // ================= LOAD MODEL =================
         if (!recognizer) {
             recognizer = speechCommands.create(
                 "BROWSER_FFT",
@@ -123,10 +124,10 @@ async function initAI() {
             await recognizer.ensureModelLoaded();
         }
 
-        // start listening
+        // ================= START LISTENING =================
         await recognizer.listen(handleResult, {
-            probabilityThreshold: 0.75,
-            overlapFactor: 0.15
+            probabilityThreshold: 0.80,
+            overlapFactor: 0.3
         });
 
         isAIActive = true;
@@ -141,42 +142,44 @@ async function initAI() {
     } catch (err) {
         console.error(err);
 
+        statusLabel.innerText = "OFFLINE";
         btn.innerText = "RETRY SENSOR";
         btn.disabled = false;
 
-        statusLabel.innerText = "OFFLINE";
+    } finally {
+        isLoading = false;
     }
 }
 
 // ===================== AI CALLBACK =====================
 
 function handleResult(result) {
-    if (!isAIActive) return;
+    if (!isAIActive || !recognizer) return;
 
     const labels = recognizer.wordLabels();
     const scores = result.scores;
 
-    let maxScore = 0;
-    let detected = null;
+    let bestLabel = null;
+    let bestScore = 0;
 
     for (let i = 0; i < labels.length; i++) {
         if (labels[i] === "background_noise") continue;
 
-        if (scores[i] > maxScore) {
-            maxScore = scores[i];
-            detected = labels[i];
+        if (scores[i] > bestScore) {
+            bestScore = scores[i];
+            bestLabel = labels[i];
         }
     }
 
     const now = Date.now();
 
     if (
-        maxScore > 0.8 &&
-        flagMap[detected] &&
+        bestScore > 0.8 &&
+        flagMap[bestLabel] &&
         now - lastDetectionTime > 1200
     ) {
         document.getElementById("flag-display").innerText =
-            flagMap[detected];
+            flagMap[bestLabel];
 
         lastDetectionTime = now;
     }
@@ -193,18 +196,10 @@ async function stopAI() {
     try {
         isAIActive = false;
 
-        // STOP LISTENING (CRITICAL FIX)
         if (recognizer) {
-            await recognizer.stopListening();
+            recognizer.stopListening(); // IMPORTANT: sync stop (more stable)
         }
 
-        // STOP MICROPHONE STREAM
-        if (micStream) {
-            micStream.getTracks().forEach(t => t.stop());
-            micStream = null;
-        }
-
-        // RESET UI
         zone.classList.remove("active-mic");
         statusLabel.innerText = "SENSOR OFF";
 
@@ -212,10 +207,9 @@ async function stopAI() {
         btn.style.background = "";
         btn.disabled = false;
 
-        // RESET FLAG
         flagDisplay.innerText = "🤖";
 
-        console.log("AI stopped cleanly");
+        console.log("AI stopped");
 
     } catch (err) {
         console.error("stopAI error:", err);
