@@ -181,7 +181,7 @@ function handleResult(result) {
         // ⏱ STEP 3: stop AFTER render (fixes your bug)
         setTimeout(() => {
             stopAI();
-        }, 1000);
+        }, 2000);
     }
 }
 
