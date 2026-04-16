@@ -83,124 +83,94 @@ function finishGame() {
 
 // ---------------- AI LOGIC ----------------
 
+let timer; // Μεταβλητή για το χρονόμετρο 5 δευτερολέπτων
+
 async function initAI() {
     const btn = document.getElementById('activate-ai-btn');
     const statusLabel = document.getElementById('status-label');
-    const zone = document.querySelector('.ai-lab-zone');
-    const flagDisplay = document.getElementById('flag-display');
 
-    // TOGGLE OFF
-    if (isAIActive) {
+    // 1. Αν πατηθεί ενώ είναι ανοιχτό, το κλείνουμε χειροκίνητα και καθαρίζουμε το χρονόμετρο
+    if (recognizer && recognizer.isListening()) {
+        clearTimeout(timer); // Ακύρωση του αυτόματου κλεισίματος
         await stopAI();
         return;
     }
 
-    // START
-    try {
-        btn.innerText = "CONNECTING...";
-        btn.disabled = true;
+    btn.innerText = "CONNECTING...";
+    btn.disabled = true;
 
+    try {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         const audioCtx = new AudioContext();
-
-        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-        if (audioCtx.state === 'suspended') {
-            await audioCtx.resume();
-        }
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
 
         if (!recognizer) {
-            recognizer = speechCommands.create(
-                "BROWSER_FFT",
-                undefined,
-                TM_URL + "model.json",
-                TM_URL + "metadata.json"
-            );
-
+            recognizer = speechCommands.create("BROWSER_FFT", undefined, TM_URL + "model.json", TM_URL + "metadata.json");
             await recognizer.ensureModelLoaded();
         }
 
-        await recognizer.listen(handleAIResult, {
+        await recognizer.listen(result => {
+            const labels = recognizer.wordLabels();
+            const scores = result.scores;
+            let maxScore = 0;
+            let detectedLabel = null;
+
+            labels.forEach((label, i) => {
+                if (label === "background_noise") return;
+                if (scores[i] > maxScore) {
+                    maxScore = scores[i];
+                    detectedLabel = label;
+                }
+            });
+
+            const now = Date.now();
+            if (maxScore > 0.80 && flagMap[detectedLabel]) {
+                if (now - lastDetectionTime > 1000) {
+                    document.getElementById('flag-display').innerText = flagMap[detectedLabel];
+                    lastDetectionTime = now;
+                }
+            }
+        }, {
             probabilityThreshold: 0.75,
-            overlapFactor: 0.30
+            overlapFactor: 0.70
         });
 
-        isAIActive = true;
-
-        zone.classList.add('active-mic');
-        statusLabel.innerText = "AI LISTENING";
-
-        btn.innerText = "TURN OFF SENSOR";
+        // 2. UI UPDATE - ΕΝΕΡΓΟ
+        document.querySelector('.ai-lab-zone').classList.add('active-mic');
+        statusLabel.innerText = "AI LISTENING (5s)";
+        btn.innerText = "STOP SENSOR NOW";
         btn.style.background = "#ff3b30";
         btn.disabled = false;
 
-    } catch (err) {
-        console.error("AI init error:", err);
+        // 3. ΑΥΤΟΜΑΤΟ ΚΛΕΙΣΙΜΟ ΜΕΤΑ ΑΠΟ 5 ΔΕΥΤΕΡΟΛΕΠΤΑ
+        clearTimeout(timer); // Σιγουρευόμαστε ότι δεν τρέχει άλλο timer
+        timer = setTimeout(async () => {
+            if (recognizer && recognizer.isListening()) {
+                await stopAI();
+                statusLabel.innerText = "AUTO-OFF (TIME UP)";
+            }
+        }, 5000); // 5000ms = 5 δευτερόλεπτα
 
+    } catch(e) { 
+        console.error("AI Error:", e);
         btn.innerText = "RETRY SENSOR";
         btn.disabled = false;
         statusLabel.innerText = "OFFLINE";
     }
 }
 
-function handleAIResult(result) {
-    if (!isAIActive) return;
-
-    const labels = recognizer.wordLabels();
-    const scores = result.scores;
-
-    let maxScore = 0;
-    let detectedLabel = null;
-
-    labels.forEach((label, i) => {
-        if (label === "background_noise") return;
-
-        if (scores[i] > maxScore) {
-            maxScore = scores[i];
-            detectedLabel = label;
-        }
-    });
-
-    const now = Date.now();
-
-    if (maxScore > 0.75 && flagMap[detectedLabel]) {
-        if (now - lastDetectionTime > 1000) {
-            document.getElementById('flag-display').innerText =
-                flagMap[detectedLabel];
-
-            lastDetectionTime = now;
-        }
-    }
-}
-
 async function stopAI() {
-    const btn = document.getElementById('activate-ai-btn');
-    const statusLabel = document.getElementById('status-label');
-    const zone = document.querySelector('.ai-lab-zone');
-    const flagDisplay = document.getElementById('flag-display');
-
-    try {
-        isAIActive = false;
-
-        if (recognizer) {
-            await recognizer.stopListening();
-        }
-
-        if (micStream) {
-            micStream.getTracks().forEach(t => t.stop());
-            micStream = null;
-        }
-
-        zone.classList.remove('active-mic');
+    if (recognizer && recognizer.isListening()) {
+        await recognizer.stop();
+        
+        const btn = document.getElementById('activate-ai-btn');
+        const statusLabel = document.getElementById('status-label');
+        
+        document.querySelector('.ai-lab-zone').classList.remove('active-mic');
         statusLabel.innerText = "SENSOR OFF";
-
         btn.innerText = "ACTIVATE AI SENSOR";
-        btn.style.background = "";
+        btn.style.background = ""; // Επιστροφή στο CSS default
         btn.disabled = false;
-
-        flagDisplay.innerText = "🤖";
-
-    } catch (err) {
-        console.error("Stop AI error:", err);
     }
 }
