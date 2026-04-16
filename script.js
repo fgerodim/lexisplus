@@ -17,10 +17,9 @@ const TM_URL = "https://teachablemachine.withgoogle.com/models/rWcz2aeaS/";
 
 let recognizer = null;
 let isAIActive = false;
-let isLoading = false;
+let isBusy = false;
 let lastDetectionTime = 0;
 
-// label map
 const flagMap = {
     "hello_en": "🇬🇧",
     "geia_gr": "🇬🇷"
@@ -31,7 +30,6 @@ const flagMap = {
 function startGame() {
     score = 0;
     currentQ = 0;
-
     document.getElementById("live-score").innerText = "0000";
     showQuestion();
 }
@@ -87,20 +85,28 @@ function finishGame() {
     `;
 }
 
-// ===================== AI (ONE SHOT MODE) =====================
+// ===================== AI (STABLE ONE-SHOT) =====================
 
 async function initAI() {
-    if (isLoading || isAIActive) return;
-    isLoading = true;
+    if (isBusy) return;
+    isBusy = true;
 
     const btn = document.getElementById("activate-ai-btn");
-    const statusLabel = document.getElementById("status-label");
+    const status = document.getElementById("status-label");
     const zone = document.querySelector(".ai-lab-zone");
 
     try {
+        // TOGGLE OFF
+        if (isAIActive) {
+            await stopAI();
+            isBusy = false;
+            return;
+        }
+
         btn.innerText = "CONNECTING...";
         btn.disabled = true;
 
+        // load model once
         if (!recognizer) {
             recognizer = speechCommands.create(
                 "BROWSER_FFT",
@@ -112,29 +118,27 @@ async function initAI() {
         }
 
         await recognizer.listen(handleResult, {
-            probabilityThreshold: 0.80,
+            probabilityThreshold: 0.8,
             overlapFactor: 0.3
         });
 
         isAIActive = true;
 
         zone.classList.add("active-mic");
-        statusLabel.innerText = "AI LISTENING";
+        status.innerText = "AI LISTENING";
 
         btn.innerText = "TURN OFF SENSOR";
         btn.style.background = "#ff3b30";
         btn.disabled = false;
 
-    } catch (err) {
-        console.error(err);
-
-        statusLabel.innerText = "OFFLINE";
+    } catch (e) {
+        console.error(e);
+        status.innerText = "OFFLINE";
         btn.innerText = "RETRY SENSOR";
         btn.disabled = false;
-
-    } finally {
-        isLoading = false;
     }
+
+    isBusy = false;
 }
 
 // ===================== AI CALLBACK =====================
@@ -145,7 +149,7 @@ function handleResult(result) {
     const labels = recognizer.wordLabels();
     const scores = result.scores;
 
-    let bestLabel = null;
+    let best = null;
     let bestScore = 0;
 
     for (let i = 0; i < labels.length; i++) {
@@ -153,7 +157,7 @@ function handleResult(result) {
 
         if (scores[i] > bestScore) {
             bestScore = scores[i];
-            bestLabel = labels[i];
+            best = labels[i];
         }
     }
 
@@ -161,16 +165,23 @@ function handleResult(result) {
 
     if (
         bestScore > 0.8 &&
-        flagMap[bestLabel] &&
-        now - lastDetectionTime > 1200
+        flagMap[best] &&
+        now - lastDetectionTime > 1000
     ) {
-        document.getElementById("flag-display").innerText =
-            flagMap[bestLabel];
+        const el = document.getElementById("flag-display");
+
+        // ✅ STEP 1: show result immediately
+        el.innerText = flagMap[best];
 
         lastDetectionTime = now;
 
-        // 🔥 ONE-SHOT AUTO STOP
-        stopAI();
+        // ❗ STEP 2: freeze AI first (prevents overwrite)
+        isAIActive = false;
+
+        // ⏱ STEP 3: stop AFTER render (fixes your bug)
+        setTimeout(() => {
+            stopAI();
+        }, 1000);
     }
 }
 
@@ -178,9 +189,9 @@ function handleResult(result) {
 
 async function stopAI() {
     const btn = document.getElementById("activate-ai-btn");
-    const statusLabel = document.getElementById("status-label");
+    const status = document.getElementById("status-label");
     const zone = document.querySelector(".ai-lab-zone");
-    const flagDisplay = document.getElementById("flag-display");
+    const flag = document.getElementById("flag-display");
 
     try {
         isAIActive = false;
@@ -190,17 +201,18 @@ async function stopAI() {
         }
 
         zone.classList.remove("active-mic");
-        statusLabel.innerText = "SENSOR OFF";
+        status.innerText = "SENSOR OFF";
 
         btn.innerText = "ACTIVATE AI SENSOR";
         btn.style.background = "";
         btn.disabled = false;
 
-        flagDisplay.innerText = "🤖";
+        // reset after full cycle
+        setTimeout(() => {
+            flag.innerText = "🤖";
+        }, 300);
 
-        console.log("AI stopped (one-shot mode)");
-
-    } catch (err) {
-        console.error(err);
+    } catch (e) {
+        console.error(e);
     }
 }
