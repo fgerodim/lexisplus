@@ -65,45 +65,39 @@ function finishGame() {
 }
 
 // --- AI LOGIC (TOGGLE ON/OFF) ---
+// --- AI LOGIC (TOGGLE ON/OFF) ---
 async function initAI() {
     const btn = document.getElementById('activate-ai-btn');
     const statusLabel = document.getElementById('status-label');
 
-    // 1. ΛΕΙΤΟΥΡΓΙΑ TOGGLE: Αν ακούει ήδη, σταμάτα το
+    // 1. ΕΛΕΓΧΟΣ: ΑΝ ΤΡΕΧΕΙ ΗΔΗ, ΤΟ ΚΛΕΙΝΟΥΜΕ ΚΑΙ ΒΓΑΙΝΟΥΜΕ
     if (recognizer && recognizer.isListening()) {
+        console.log("Attempting to stop...");
         await stopAI();
-        return;
+        return; // ΠΟΛΥ ΣΗΜΑΝΤΙΚΟ: Σταματάμε την εκτέλεση εδώ
     }
 
+    // Αν δεν τρέχει, ξεκινάμε τη διαδικασία ενεργοποίησης
     btn.innerText = "CONNECTING...";
     btn.disabled = true;
 
-    // ΕΛΕΓΧΟΣ URL
-    if (TM_URL.includes("YOUR_ID")) {
-        alert("Please set your Teachable Machine URL first!");
-        btn.innerText = "URL MISSING";
-        btn.disabled = false;
-        return;
-    }
-
     try {
-        // 2. Ξεκλείδωμα Audio για Mobile
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         const audioCtx = new AudioContext();
-        await navigator.mediaDevices.getUserMedia({ audio: true });
+        
+        // Ζητάμε άδεια
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         if (audioCtx.state === 'suspended') await audioCtx.resume();
 
-        // 3. Δημιουργία/Φόρτωση Μοντέλου (αν δεν έχει ήδη δημιουργηθεί)
         if (!recognizer) {
             recognizer = speechCommands.create("BROWSER_FFT", undefined, TM_URL + "model.json", TM_URL + "metadata.json");
             await recognizer.ensureModelLoaded();
         }
 
-        // 4. Έναρξη Ακρόασης
+        // Έναρξη ακρόασης
         await recognizer.listen(result => {
             const labels = recognizer.wordLabels();
             const scores = result.scores;
-
             let maxScore = 0;
             let detectedLabel = null;
 
@@ -116,12 +110,10 @@ async function initAI() {
             });
 
             const now = Date.now();
-            // Debounce 1 δευτερόλεπτο και threshold 0.75
             if (maxScore > 0.75 && flagMap[detectedLabel]) {
                 if (now - lastDetectionTime > 1000) {
                     document.getElementById('flag-display').innerText = flagMap[detectedLabel];
                     lastDetectionTime = now;
-                    console.log("AI Detected:", detectedLabel);
                 }
             }
         }, {
@@ -129,11 +121,11 @@ async function initAI() {
             overlapFactor: 0.5
         });
 
-        // 5. UI Update - "ON" State
+        // UI UPDATE - ΕΝΕΡΓΟ
         document.querySelector('.ai-lab-zone').classList.add('active-mic');
         statusLabel.innerText = "AI LISTENING";
         btn.innerText = "TURN OFF SENSOR";
-        btn.style.background = "#ff3b30"; // Κόκκινο όταν είναι ενεργό
+        btn.style.background = "#ff3b30"; 
         btn.disabled = false;
 
     } catch(e) { 
@@ -141,24 +133,28 @@ async function initAI() {
         btn.innerText = "RETRY SENSOR";
         btn.disabled = false;
         statusLabel.innerText = "OFFLINE";
-        alert("Σφάλμα πρόσβασης στο μικρόφωνο. Παρακαλώ επιτρέψτε την πρόσβαση.");
     }
 }
 
 async function stopAI() {
     if (recognizer && recognizer.isListening()) {
-        await recognizer.stop();
-        
-        const btn = document.getElementById('activate-ai-btn');
-        const statusLabel = document.getElementById('status-label');
-        
-        // UI Update - "OFF" State
-        document.querySelector('.ai-lab-zone').classList.remove('active-mic');
-        statusLabel.innerText = "SENSOR OFF";
-        btn.innerText = "ACTIVATE AI SENSOR";
-        btn.style.background = "var(--lexis-accent)"; // Επιστροφή στο αρχικό χρώμα
-        btn.disabled = false;
-        
-        console.log("AI Sensor Stopped.");
+        try {
+            await recognizer.stop(); // Περιμένουμε να σταματήσει το hardware
+            
+            const btn = document.getElementById('activate-ai-btn');
+            const statusLabel = document.getElementById('status-label');
+            
+            // ΕΠΑΝΑΦΟΡΑ UI
+            document.querySelector('.ai-lab-zone').classList.remove('active-mic');
+            statusLabel.innerText = "SENSOR OFF";
+            btn.innerText = "ACTIVATE AI SENSOR";
+            btn.style.background = ""; // Επιστροφή στο CSS default
+            btn.disabled = false;
+            
+            console.log("AI Successfully Stopped");
+        } catch (err) {
+            console.error("Error stopping recognizer:", err);
+        }
     }
+
 }
