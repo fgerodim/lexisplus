@@ -1,11 +1,11 @@
 // ===================== QUIZ =====================
 
 const questions = [
-    { q: "Στο Advanced τμήμα, ποιο εργαλείο μετατρέπει την Python σε Web App;", a: ["Excel", "Streamlit", "PowerPoint"], c: 1 },
-    { q: "Τι χρησιμοποιούμε για να σχεδιάσουμε τη λογική ενός αλγορίθμου;", a: ["Flowcharts", "Word", "Paint"], c: 0 },
-    { q: "Στο Junior τμήμα, ποιο εργαλείο μας βοηθάει να φτιάξουμε παιχνίδια;", a: ["Netflix", "Scratch 3.0", "Spotify"], c: 1 },
+    { q: "Αν θέλεις να μάθεις σε ένα σύστημα ΑΙ να ξεχωρίζει τις γάτες από τους σκύλους, ποιο είναι το πρώτο πράγμα που πρέπει να του δώσεις;", a: ["Πολλές φωτογραφίες με σκύλους και γάτες", "Θα της γράψεις ένα κείμενο που εξηγεί πώς μοιάζει μια γάτα", "Τίποτα από τα δύο"], c: 0 },
+    { q: "Τι χρησιμοποιούμε για να σχεδιάσουμε τη λογική ενός αλγορίθμου;", a: ["Flowcharts (Διάγραμμα Ροής)", "Κείμενο σε Word", "Variables (Μεταβλητές)"], c: 0 },
+    { q: "Όταν ένα Large Language Model (όπως το ChatGPT) δίνει μια απάντηση που ακούγεται σωστή αλλά είναι εντελώς φανταστική, πώς ονομάζεται το φαινόμενο;;", a: ["Boolean Logic", "Data Cleaning", "Hallucination"], c: 2 },
     { q: "Πώς ονομάζεται η ικανότητα της μηχανής να 'βλέπει';", a: ["Computer Vision", "Eye AI", "Glass Tech"], c: 0 },
-    { q: "Πού γράφουμε κώδικα Python στο Cloud;", a: ["Google Colab", "Facebook", "Instagram"], c: 0 }
+    { q: "Τι είναι το 'Bias' (Προκατάληψη) σε έναν αλγόριθμο Τεχνητής Νοημοσύνης;", a: ["Σφάλμα όταν ένα προγραμμα δεν ξεκινάει", "Μεροληπτικά δεδομένα κατά την εκπαίδευση", "Ατέρμων βρόχος (ο αλγόριθμος δεν τερματίζει ποτέ)"], c: 1 }
 ];
 
 let currentQ = 0;
@@ -73,7 +73,7 @@ function checkAns(idx) {
 
 function finishGame() {
     document.getElementById("quiz-screen").innerHTML = `
-        <h2 style="text-align:center;color:#00ff88;">MISSION COMPLETE</h2>
+        <h2 style="text-align:center;color:#00ff88;">TECH LEVEL COMPLETE</h2>
         <div style="font-size:2rem;text-align:center;margin:20px;">
             ${score} XP
         </div>
@@ -96,7 +96,6 @@ async function initAI() {
     const zone = document.querySelector(".ai-lab-zone");
 
     try {
-        // TOGGLE OFF
         if (isAIActive) {
             await stopAI();
             isBusy = false;
@@ -106,7 +105,6 @@ async function initAI() {
         btn.innerText = "CONNECTING...";
         btn.disabled = true;
 
-        // load model once
         if (!recognizer) {
             recognizer = speechCommands.create(
                 "BROWSER_FFT",
@@ -168,20 +166,20 @@ function handleResult(result) {
         flagMap[best] &&
         now - lastDetectionTime > 1000
     ) {
-        const el = document.getElementById("flag-display");
+        const flag = document.getElementById("flag-display");
 
-        // ✅ STEP 1: show result immediately
-        el.innerText = flagMap[best];
+        // show result instantly
+        flag.innerText = flagMap[best];
 
         lastDetectionTime = now;
 
-        // ❗ STEP 2: freeze AI first (prevents overwrite)
+        // freeze AI first
         isAIActive = false;
 
-        // ⏱ STEP 3: stop AFTER render (fixes your bug)
+        // stop safely after render
         setTimeout(() => {
             stopAI();
-        }, 2000);
+        }, 500);
     }
 }
 
@@ -207,10 +205,9 @@ async function stopAI() {
         btn.style.background = "";
         btn.disabled = false;
 
-        // reset after full cycle
         setTimeout(() => {
             flag.innerText = "🤖";
-        }, 300);
+        }, 400);
 
     } catch (e) {
         console.error(e);
