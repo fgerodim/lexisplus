@@ -13,7 +13,7 @@ let score = 0;
 
 // ===================== AI STATE =====================
 
-const TM_URL = "https://teachablemachine.withgoogle.com/models/rWcz2aeaS/";
+const TM_URL = "https://teachablemachine.withgoogle.com/models/-cqksMnLWR/";
 
 let recognizer = null;
 let isAIActive = false;
@@ -21,8 +21,12 @@ let isBusy = false;
 let lastDetectionTime = 0;
 
 const flagMap = {
-    "hello_en": "🇬🇧",
-    "geia_gr": "🇬🇷"
+    "hello_en": "🇬🇧",   // Αγγλικά
+    "geia_gr": "🇬🇷",    // Ελληνικά
+    "ciao_it": "🇮🇹",    // Ιταλικά
+    "hola_es": "🇪🇸",    // Ισπανικά
+    "bonjour_fr": "🇫🇷", // Γαλλικά
+    "konnichiwa_jp": "🇯🇵"
 };
 
 // ===================== QUIZ =====================
