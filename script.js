@@ -21,12 +21,12 @@ let isListening = false;
 let detectedResult = null;
 
 const flagMap = {
-    "hello_en": "GB",
-    "geia_gr": "GR",
-    "ciao_it": "IT",
-    "hola_es": "ES",
-    "bonour_fr": "FR",
-    "konnichiwa_jp": "JP"
+    "hello_en":      "🇬🇧",
+    "geia_gr":       "🇬🇷",
+    "ciao_it":       "🇮🇹",
+    "hola_es":       "🇪🇸",
+    "bonour_fr":    "🇫🇷",
+    "konnichiwa_jp": "🇯🇵"
 };
 
 // ===================== QUIZ =====================
@@ -111,14 +111,22 @@ async function initAI() {
 function setupRecordBtn() {
     const btn = document.getElementById("record-btn");
 
+    // Για υπολογιστή
     btn.addEventListener("mousedown", startListening);
-    btn.addEventListener("touchstart", (e) => { e.preventDefault(); startListening(); }, { passive: false });
-
     btn.addEventListener("mouseup", stopListening);
     btn.addEventListener("mouseleave", stopListening);
-    btn.addEventListener("touchend", (e) => { e.preventDefault(); stopListening(); }, { passive: false });
-}
 
+    // Για κινητά - Εδώ είναι η διόρθωση
+    btn.addEventListener("touchstart", (e) => {
+        if (e.cancelable) e.preventDefault(); // Σταματάει το scroll/zoom του browser
+        startListening();
+    }, { passive: false }); // Κρίσιμο: επιτρέπει το preventDefault
+
+    btn.addEventListener("touchend", (e) => {
+        if (e.cancelable) e.preventDefault();
+        stopListening();
+    }, { passive: false });
+}
 async function startListening() {
     if (!isModelLoaded || isListening) return;
 
