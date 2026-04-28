@@ -79,5 +79,52 @@ h2 { font-size: 1rem; line-height: 1.4; margin-bottom: 15px; min-height: 50px; }
 #flag-display { font-size: 50px; height: 60px; margin: 5px 0; display: flex; align-items: center; justify-content: center; }
 .hint { font-size: 10px; color: var(--lexis-gray); text-transform: uppercase; margin-top: 8px; }
 
+/* ===================== RECORD BUTTON ===================== */
+.record-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 20px 16px;
+    margin-top: 12px;
+    border-radius: 16px;
+    border: 2px solid #34c759;
+    background: rgba(52, 199, 89, 0.1);
+    color: #34c759;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+    font-family: 'Orbitron';
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+}
+
+.record-btn:active,
+.record-btn.recording {
+    background: rgba(52, 199, 89, 0.35);
+    box-shadow: 0 0 20px rgba(52, 199, 89, 0.5);
+    transform: scale(0.97);
+    border-color: #34c759;
+}
+
+.record-icon {
+    font-size: 28px;
+    line-height: 1;
+    transition: transform 0.15s;
+}
+
+.record-btn.recording .record-icon {
+    animation: pulse 0.8s infinite;
+}
+
+.record-label {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+}
+
 @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.4); } 100% { transform: scale(1); } }
 footer { font-size: 9px; text-align: center; padding: 15px 0; opacity: 0.5; }

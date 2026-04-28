@@ -16,17 +16,17 @@ let score = 0;
 const TM_URL = "https://teachablemachine.withgoogle.com/models/-cqksMnLWR/";
 
 let recognizer = null;
-let isAIActive = false;
-let isBusy = false;
-let lastDetectionTime = 0;
+let isModelLoaded = false;
+let isListening = false;
+let detectedResult = null;
 
 const flagMap = {
-    "hello_en": "🇬🇧",   // Αγγλικά
-    "geia_gr": "🇬🇷",    // Ελληνικά
-    "ciao_it": "🇮🇹",    // Ιταλικά
-    "hola_es": "🇪🇸",    // Ισπανικά
-    "bonjour_fr": "🇫🇷", // Γαλλικά
-    "konnichiwa_jp": "🇯🇵"
+    "hello_en": "GB",
+    "geia_gr": "GR",
+    "ciao_it": "IT",
+    "hola_es": "ES",
+    "bonour_fr": "FR",
+    "konnichiwa_jp": "JP"
 };
 
 // ===================== QUIZ =====================
@@ -40,75 +40,45 @@ function startGame() {
 
 function showQuestion() {
     const q = questions[currentQ];
-
-    document.getElementById("level-label").innerText =
-        `LEVEL ${currentQ + 1}/${questions.length}`;
-
-    document.getElementById("progress-fill").style.width =
-        `${(currentQ / questions.length) * 100}%`;
-
+    document.getElementById("level-label").innerText = `LEVEL ${currentQ + 1}/${questions.length}`;
+    document.getElementById("progress-fill").style.width = `${(currentQ / questions.length) * 100}%`;
     document.getElementById("question-text").innerText = q.q;
-
     document.getElementById("options-grid").innerHTML =
-        q.a.map((opt, i) =>
-            `<button class="option-btn" onclick="checkAns(${i})">${opt}</button>`
-        ).join("");
+        q.a.map((opt, i) => `<button class="option-btn" onclick="checkAns(${i})">${opt}</button>`).join("");
 }
 
 function checkAns(idx) {
     const isCorrect = idx === questions[currentQ].c;
-
     const sfx = document.getElementById(isCorrect ? "sfx-correct" : "sfx-wrong");
     if (sfx) sfx.play();
-
     if (isCorrect) score += 200;
-
-    document.getElementById("live-score").innerText =
-        String(score).padStart(4, "0");
-
+    document.getElementById("live-score").innerText = String(score).padStart(4, "0");
     currentQ++;
-
-    if (currentQ < questions.length) {
-        showQuestion();
-    } else {
-        finishGame();
-    }
+    if (currentQ < questions.length) showQuestion();
+    else finishGame();
 }
 
 function finishGame() {
     document.getElementById("quiz-screen").innerHTML = `
         <h2 style="text-align:center;color:#00ff88;">TECH LEVEL COMPLETE</h2>
-        <div style="font-size:2rem;text-align:center;margin:20px;">
-            ${score} XP
-        </div>
+        <div style="font-size:2rem;text-align:center;margin:20px;">${score} XP</div>
         <button class="action-btn start-quiz"
             onclick="window.location.href='tel:2651030098'"
-            style="background:#34c759">
-            ΕΓΓΡΑΦΗ ΤΩΡΑ
-        </button>
+            style="background:#34c759">ΕΓΓΡΑΦΗ ΤΩΡΑ</button>
     `;
 }
 
-// ===================== AI (STABLE ONE-SHOT) =====================
+// ===================== AI INIT =====================
 
 async function initAI() {
-    if (isBusy) return;
-    isBusy = true;
-
     const btn = document.getElementById("activate-ai-btn");
     const status = document.getElementById("status-label");
-    const zone = document.querySelector(".ai-lab-zone");
+
+    btn.innerText = "LOADING MODEL...";
+    btn.disabled = true;
+    status.innerText = "LOADING...";
 
     try {
-        if (isAIActive) {
-            await stopAI();
-            isBusy = false;
-            return;
-        }
-
-        btn.innerText = "CONNECTING...";
-        btn.disabled = true;
-
         if (!recognizer) {
             recognizer = speechCommands.create(
                 "BROWSER_FFT",
@@ -119,19 +89,14 @@ async function initAI() {
             await recognizer.ensureModelLoaded();
         }
 
-        await recognizer.listen(handleResult, {
-            probabilityThreshold: 0.8,
-            overlapFactor: 0.3
-        });
+        isModelLoaded = true;
+        status.innerText = "MODEL READY";
+        btn.innerText = "MODEL READY ✓";
+        btn.disabled = true;
+        btn.style.opacity = "0.5";
 
-        isAIActive = true;
-
-        zone.classList.add("active-mic");
-        status.innerText = "AI LISTENING";
-
-        btn.innerText = "TURN OFF SENSOR";
-        btn.style.background = "#ff3b30";
-        btn.disabled = false;
+        document.getElementById("record-btn").style.display = "flex";
+        document.querySelector(".hint").innerText = "Κράτα το κουμπί και πες μια λέξη!";
 
     } catch (e) {
         console.error(e);
@@ -139,81 +104,115 @@ async function initAI() {
         btn.innerText = "RETRY SENSOR";
         btn.disabled = false;
     }
-
-    isBusy = false;
 }
 
-// ===================== AI CALLBACK =====================
+// ===================== PUSH TO TALK =====================
 
-function handleResult(result) {
-    if (!isAIActive || !recognizer) return;
+function setupRecordBtn() {
+    const btn = document.getElementById("record-btn");
 
-    const labels = recognizer.wordLabels();
-    const scores = result.scores;
+    btn.addEventListener("mousedown", startListening);
+    btn.addEventListener("touchstart", (e) => { e.preventDefault(); startListening(); }, { passive: false });
 
-    let best = null;
-    let bestScore = 0;
-
-    for (let i = 0; i < labels.length; i++) {
-        if (labels[i] === "background_noise") continue;
-
-        if (scores[i] > bestScore) {
-            bestScore = scores[i];
-            best = labels[i];
-        }
-    }
-
-    const now = Date.now();
-
-    if (
-        bestScore > 0.8 &&
-        flagMap[best] &&
-        now - lastDetectionTime > 1000
-    ) {
-        const flag = document.getElementById("flag-display");
-
-        // show result instantly
-        flag.innerText = flagMap[best];
-
-        lastDetectionTime = now;
-
-        // freeze AI first
-        isAIActive = false;
-
-        // stop safely after render
-        setTimeout(() => {
-            stopAI();
-        }, 500);
-    }
+    btn.addEventListener("mouseup", stopListening);
+    btn.addEventListener("mouseleave", stopListening);
+    btn.addEventListener("touchend", (e) => { e.preventDefault(); stopListening(); }, { passive: false });
 }
 
-// ===================== STOP AI =====================
+async function startListening() {
+    if (!isModelLoaded || isListening) return;
 
-async function stopAI() {
-    const btn = document.getElementById("activate-ai-btn");
     const status = document.getElementById("status-label");
     const zone = document.querySelector(".ai-lab-zone");
     const flag = document.getElementById("flag-display");
+    const btn = document.getElementById("record-btn");
+
+    detectedResult = null;
+    flag.innerText = "🎙️";
+    status.innerText = "LISTENING...";
+    zone.classList.add("active-mic");
+    btn.classList.add("recording");
 
     try {
-        isAIActive = false;
+        await recognizer.listen(
+            (result) => {
+                const labels = recognizer.wordLabels();
+                const scores = result.scores;
 
-        if (recognizer) {
-            recognizer.stopListening();
-        }
+                let best = null;
+                let bestScore = 0;
 
-        zone.classList.remove("active-mic");
-        status.innerText = "SENSOR OFF";
+                for (let i = 0; i < labels.length; i++) {
+                    if (labels[i] === "background_noise") continue;
+                    if (scores[i] > bestScore) {
+                        bestScore = scores[i];
+                        best = labels[i];
+                    }
+                }
 
-        btn.innerText = "ACTIVATE AI SENSOR";
-        btn.style.background = "";
-        btn.disabled = false;
+                // Keep best detection while holding button
+                if (best && flagMap[best] && bestScore > 0.80) {
+                    if (!detectedResult || bestScore > detectedResult.score) {
+                        detectedResult = { label: best, score: bestScore };
+                    }
+                }
+            },
+            {
+                probabilityThreshold: 0.75,
+                overlapFactor: 0.5,
+                invokeCallbackOnNoiseAndUnknown: false
+            }
+        );
 
-        setTimeout(() => {
-            flag.innerText = "🤖";
-        }, 400);
+        isListening = true;
 
     } catch (e) {
         console.error(e);
+        status.innerText = "MIC ERROR";
+        zone.classList.remove("active-mic");
+        btn.classList.remove("recording");
     }
 }
+
+async function stopListening() {
+    if (!isListening) return;
+    isListening = false;
+
+    const status = document.getElementById("status-label");
+    const zone = document.querySelector(".ai-lab-zone");
+    const flag = document.getElementById("flag-display");
+    const btn = document.getElementById("record-btn");
+
+    btn.classList.remove("recording");
+    zone.classList.remove("active-mic");
+
+    try {
+        recognizer.stopListening();
+    } catch (e) {
+        console.error(e);
+    }
+
+    // Show result
+    if (detectedResult && flagMap[detectedResult.label]) {
+        flag.innerText = flagMap[detectedResult.label];
+        status.innerText = "DETECTED! ✓";
+
+        setTimeout(() => {
+            flag.innerText = "🤖";
+            status.innerText = "MODEL READY";
+            detectedResult = null;
+        }, 2500);
+
+    } else {
+        flag.innerText = "❓";
+        status.innerText = "NOT RECOGNIZED";
+
+        setTimeout(() => {
+            flag.innerText = "🤖";
+            status.innerText = "MODEL READY";
+        }, 1500);
+    }
+}
+
+// Init record button on load
+window.addEventListener("load", setupRecordBtn);

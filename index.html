@@ -12,10 +12,7 @@
         <header class="main-header">
             <div class="brand-container">
                 <img src="assets/logo.png" alt="LEXIS Plus" class="logo-main">
-                <div class="sub-logos">
-                    <!--img src="sub1.png" alt="Junior" class="logo-sub">
-                    <img src="sub2.png" alt="Advanced" class="logo-sub"-->
-                </div>
+                <div class="sub-logos"></div>
             </div>
         </header>
 
@@ -50,6 +47,11 @@
                 </div>
                 <div id="ai-controls">
                     <button id="activate-ai-btn" class="action-btn ai-btn" onclick="initAI()">ACTIVATE AI SENSOR</button>
+                    <!-- Push-to-Talk button, hidden until model loads -->
+                    <button id="record-btn" class="record-btn" style="display:none;">
+                        <span class="record-icon">🎙️</span>
+                        <span class="record-label">ΚΡΑΤΑ ΓΙΑ ΟΜΙΛΙΑ</span>
+                    </button>
                 </div>
                 <p class="hint">Ενεργοποίησε το AI και πες "HELLO"</p>
             </div>
